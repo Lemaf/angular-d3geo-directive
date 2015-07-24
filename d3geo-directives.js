@@ -165,16 +165,7 @@
 		};
 	}]);
 
-	d3MapModule.directive('d3map', ['d3MapUtilities', function (d3MapUtilities) {
-		var COLOR_TYPE = 'color', NUMBER_TYPE = 'number';
-		var styleTypes = {
-			fill: COLOR_TYPE,
-			stroke: COLOR_TYPE,
-			fillOpacity: NUMBER_TYPE,
-			opacity: NUMBER_TYPE,
-			strokeOpacity: NUMBER_TYPE,
-			strokeWidth: NUMBER_TYPE
-		};
+	d3MapModule.directive('d3map', ['d3MapUtilities', 'heatmap', function (d3MapUtilities, heatmap) {
 
 		return {
 			restrict: 'EA',
@@ -228,10 +219,10 @@
 						layer.hoversymbols = layer.hoversymbols || {color: 'black', opacity: 1, stroke: '#67C8FF', strokeWidth: 5};*/
 
 						selection = layer.d3Layer
-							.enter()
-							.insert("path")
-							.attr("d", scope.path)
-							.attr("class", layer.className);
+						.enter()
+						.insert("path")
+						.attr("d", scope.path)
+						.attr("class", layer.className);
 						
 						/*if (layer.selectable) {
 							layer.d3Layer
@@ -262,9 +253,17 @@
 					} else
 						selection = layer.d3Layer.selectAll('path');
 
+					var styles;
+					if (scope.gauges) {
+						if (!scope.heatmap)
+							scope.heatmap = heatmap(scope.svg, scope.layerCollection).update(scope.gauges);
 
-					var styles = getStyles(layer);
-					
+						styles = scope.heatmap.getStyles(layer);
+					} else {
+						// TODO: "Static" configured style
+						var styles = getStyles(layer);
+					}
+
 					selection.style("fill", styles.fill)
 					.style("fill-opacity", styles.fillOpacity)
 					.style("opacity", styles.opacity)
@@ -309,88 +308,6 @@
 					}
 				}
 
-				function getStyles(layer) {
-					if (scope.gauges[layer.name])
-						return newGaugedStyles(layer, scope.gauges[layer.name]);
-				}
-
-				function newGaugedStyles(layer, layerGauges) {
-
-					var styles = {};
-					for (var style in layerGauges) {
-
-						styles[style] = newGaugedStyle(style, layer, layerGauges[style]);
-					}
-
-					return styles;
-				}
-
-				function newGaugedStyle(styleName, layer, properties) {
-					var type = styleTypes[styleName];
-					var gauge = {};
-
-					switch(type) {
-					case COLOR_TYPE:
-						for (var property in properties) {
-							var minMax = getMinMax(layer, property);
-							var minColor = d3.rgb(properties[property].min);
-							var maxColor = d3.rgb(properties[property].max);
-
-							gauge[property] = d3.scale.linear().domain(minMax).range([minColor, maxColor]);
-						}
-
-						return function(datum, index) {
-							var color, newColor;
-							for (var property in properties) {
-								newColor = gauge[property](datum.properties[property]);
-								color = color ? d3.interpolateRgb(color, newColor) : newColor;
-							}
-
-							return color;
-						};
-					case NUMBER_TYPE:
-						for (var property in properties) {
-							var minMax = getMinMax(layer, property);
-							var minValue = properties[property].min;
-							var maxValue = properties[property].max;
-
-							gauge[property] = d3.scale.linear().domain(minMax).range([minValue, maxValue]);
-						}
-
-						return function(datum, index) {
-							var value, newValue;
-							for (var property in properties) {
-								newValue = gauge[property](datum.properties[property]);
-								value = (value === undefined) ? newValue : (value + newValue) / 2;
-							}
-
-							return value;
-						};
-					default:
-						throw new Error('Unrecognized style ' + styleName);
-
-					}
-				}
-
-				function getMinMax(layer, property) {
-					var features = layer.geojson.features;
-
-					if (features.length) {
-						var min = features[0].properties[property];
-						var max = min, value;
-
-						for (var i=1; i < features.length; i++) {
-							value = features[i].properties[property];
-							if (value < min)
-								min = value;
-							else if (value > max)
-								max = value;
-						}
-
-						return [min, max];
-					}
-				}
-
 				function updateGauges(gauges) {
 					// $scope.gauges = gauges;
 
@@ -424,6 +341,14 @@
 							if (! newValue[i].id){
 								layer =  newValue[i];
 								layer.id = d3MapUtilities.guid();
+
+								for (var i = 0; i < scope.layerCollection.length; i++) {
+									if (layer.name === scope.layerCollection[i].name) {
+										scope.layerCollection[i].d3Layer.remove();
+										scope.layerCollection.splice(i, 1);
+									}
+									
+								};
 								scope.layerCollection.push(layer);
 							}
 						}
@@ -466,14 +391,19 @@
 					layer.selectable = layer.selectable || false;
 					layer.className = '.' + layer.name + "-" + d3MapUtilities.guid();
 					layer.style =  {color: 'black', opacity: .7, stroke: '#67C8FF', strokeWidth: .4};
-					layer.hoversymbols = layer.hoversymbols || {color: 'black', opacity: 1, stroke: '#67C8FF', strokeWidth: 5};
+					//layer.hoversymbols = layer.hoversymbols || {color: 'black', opacity: 1, stroke: '#67C8FF', strokeWidth: 5};
 
 					scope.renderLayer(layer);
 				});
 
 				scope.$watch('gauges', function (newValue, oldValue) {
 					// TODO: Update Map
-					updateGauges(newValue);
+					//updateGauges(newValue);
+
+					if (scope.heatmap)
+						scope.heatmap.update(newValue);
+					else if (scope.svg)
+						scope.heatmap = heatmap(scope.svg, scope.layerCollection).update(newValue);
 				});
 			}
 		}
