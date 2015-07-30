@@ -181,7 +181,8 @@
 				mouseenter: '=',
 				mouseout: '=',
 				onclick: '=',
-				gauges: '='
+				gauges: '=',
+				styles: '='
 			},
 			template: "<div></div>",
 			link: function(scope, element, attrs) {
@@ -259,10 +260,9 @@
 							scope.heatmap = heatmap(scope.svg, scope.layerCollection).update(scope.gauges);
 
 						styles = scope.heatmap.getStyles(layer);
-					} else {
-						// TODO: "Static" configured style
-						var styles = getStyles(layer);
 					}
+					if (!styles)
+						styles = getStyles(layer);
 
 					selection.style("fill", styles.fill)
 					.style("fill-opacity", styles.fillOpacity)
@@ -321,6 +321,16 @@
 					});
 				}
 
+				function getStyles(layer) {
+					if (scope.styles && layer.name && scope.styles[layer.name]) {
+
+						return scope.styles[layer.name];	
+					} else {
+
+						return {};
+					}
+				}
+
 				scope.stopped = function() {
 					if (d3.event.defaultPrevented) d3.event.stopPropagation();
 				};
@@ -350,12 +360,14 @@
 									
 								};
 								scope.layerCollection.push(layer);
+								scope.newLayer(layer);
 							}
 						}
 					}
-					else{
-						return;
-					}
+
+				});
+
+				scope.newLayer = function(layer) {
 
 					if (d3MapUtilities.verifyIsGeoJson(layer.geojson) == false) {return;}
 
@@ -367,14 +379,14 @@
 							.attr("height", scope.height)
 							.on("click", scope.stopped, true);
 
-						scope.svg
+						/*scope.svg
 							.append("rect")
 							.attr("class", "background")
-							.attr("width", scope.width)
-							.attr("height", scope.height)
+							.attr("width", '100%')
+							.attr("height", '100%')
 							.style("fill", "white")
 							.style("pointer-events", "all");
-
+*/
 						scope.svg
 							.call(scope.zoom)
 							.call(scope.zoom.event);
@@ -394,7 +406,7 @@
 					//layer.hoversymbols = layer.hoversymbols || {color: 'black', opacity: 1, stroke: '#67C8FF', strokeWidth: 5};
 
 					scope.renderLayer(layer);
-				});
+				};
 
 				scope.$watch('gauges', function (newValue, oldValue) {
 					// TODO: Update Map

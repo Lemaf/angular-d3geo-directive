@@ -3,6 +3,8 @@
 
 	var COLOR_TYPE = 'color', NUMBER_TYPE = 'number';
 
+	var COLOR_BLEND_FACTOR = 0.5;
+
 	var STYLE_TYPES = {
 		fill: COLOR_TYPE,
 		stroke: COLOR_TYPE,
@@ -87,7 +89,7 @@
 		var color, newColor, property;
 		for (property in gauges) {
 			newColor = gauges[property](datum.properties[property]);
-			color = color ? d3.interpolateRgb(color, newColor) : newColor;
+			color = color ? d3.interpolateRgb(color, newColor)(COLOR_BLEND_FACTOR) : newColor;
 		}
 
 		return color;
@@ -115,6 +117,7 @@
 			newNumber = gauges[property](datum.properties[property]);
 			number = (number === undefined) ? newNumber : (number + newNumber) / 2;
 		}
+		return number;
 	}
 
 	HeatMap.prototype._newNumberStyle = function(layer, properties) {
