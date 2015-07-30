@@ -153,7 +153,6 @@
 				return projection;
 			},
 			guid :function() {
-				//http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript
 				function s4() {
 					return Math.floor((1 + Math.random()) * 0x10000)
 						.toString(16)
@@ -164,16 +163,12 @@
 			}
 		};
 	}]);
-
 	d3MapModule.directive('d3map', ['d3MapUtilities', 'heatmap', function (d3MapUtilities, heatmap) {
-
 		return {
 			restrict: 'EA',
 			scope: {
 				layers: '=',
 				projection: '=',
-				width: '=',
-				height: '=',
 				pan: '=',
 				graticule: '=',
 				index:'@',
@@ -184,7 +179,6 @@
 				gauges: '=',
 				styles: '='
 			},
-			template: "<div></div>",
 			link: function(scope, element, attrs) {
 				scope.svg = null;
 				scope.d3projection = null;
@@ -199,7 +193,11 @@
 					hoverSymbol:{},
 					zoomTo: false
 				};
-
+				element.css({
+					display: 'block',
+					height: '100%',
+					width: '100%'
+				});
 				scope.applyStyle = function(el, style){
 					d3.select(el.parentNode.appendChild(el))
 						.style({'stroke':style.stroke})
@@ -208,6 +206,20 @@
 						//.style({'stroke-width': style.strokeWidth});
 						.style("stroke-width", 1.5 / d3.event.scale + "px");
 				};
+				function path(datum, index) {
+					return scope.path(datum, index);
+				}
+				function updateProjection() {
+					if (scope.svg) {
+						var rect = scope.svg.node().getBoundingClientRect();
+						scope.width = parseInt(rect.width, 10);
+						scope.height = parseInt(rect.height, 10);
+
+						scope.d3projection = d3MapUtilities.selectProjection(scope.projection, scope.width, scope.height);
+						scope.path = d3.geo.path().projection(scope.d3projection);
+					}
+				}
+				d3.select(window).on('resize', updateProjection);
 
 				scope.renderLayer = function(layer) {
 
@@ -216,34 +228,12 @@
 					if (!layer.d3Layer) {
 						layer.d3Layer = scope.svg.insert("g").selectAll(layer.className).data(layer.geojson.features);
 
-						/*layer.symbols = layer.symbols || {color: 'black', opacity: .7, stroke: '#67C8FF', strokeWidth: .4};
-						layer.hoversymbols = layer.hoversymbols || {color: 'black', opacity: 1, stroke: '#67C8FF', strokeWidth: 5};*/
-
 						selection = layer.d3Layer
 						.enter()
 						.insert("path")
-						.attr("d", scope.path)
+						.attr("d", path)
 						.attr("class", layer.className);
-						
-						/*if (layer.selectable) {
-							layer.d3Layer
-								.on("mousemove", function (d) {
-									if (scope.mousemove) scope.mousemove(d, i);
-								})
-								.on("mouseenter", function (d, i) {
-									scope.applyStyle(this, layer.hoversymbols);
-									if (scope.mouseenter) scope.mouseenter(d, i);
-								})
-								.on("mouseout", function (d, i) {
-									scope.applyStyle(this, layer.symbols);
-									if (scope.mouseout) scope.mouseout(d, i);
-								})
-								.on("click", function (d, i) {
-									if (scope.onclick) scope.onclick(d, i);
-								});
-						}*/
-
-						if (layer.zoomTo){
+						if (layer.zoomTo) {
 							var b = d3MapUtilities.getLayerBounds(layer.d3Layer, scope.d3projection, scope.height, scope.width);
 							scope.zoomToBounds(b.translate, b.scale);
 						}
@@ -271,7 +261,6 @@
 					.style("stroke-width", styles.strokeWidth)
 					.style("stroke-opacity", styles.strokeOpacity)
 				};
-
 				scope.showGraticule = function(){
 
 					var graticule = d3.geo.graticule();
@@ -279,26 +268,23 @@
 						scope.svg.append("path")
 						.datum(graticule)
 						.attr("class", "graticule")
-						.attr("d", scope.path)
+						.attr("d", path)
 						.style("fill", "none")
 						.style("stroke", "#777")
 						.style("stroke-width", ".5px")
 						.style("stroke-opacity", ".5");
 				};
-
 				scope.zoomToFeature = function(d){
 					// get feature translate and scale
 					var featureBounds = d3MapUtilities.getFeatureBounds(d, scope.path, scope.height, scope.width);
 					// use those data to zoom to area
 					scope.zoomToBounds(featureBounds.translate, featureBounds.scale);
 				}
-
 				scope.zoomToBounds = function(translate, scale) {
 					scope.svg.transition()
 						.duration(750)
 						.call(scope.zoom.translate(translate).scale(scale).event);
 				};
-
 				function zoomed() {
 					var gg = scope.svg.selectAll("g");
 					gg.style("stroke-width", 1.5 / d3.event.scale + "px");
@@ -307,16 +293,12 @@
 						scope.graticuleLayer.attr("transform", "translate(" + d3.event.translate + ")scale(" + d3.event.scale + ")");
 					}
 				}
-
 				function updateGauges(gauges) {
-					// $scope.gauges = gauges;
-
 					update(); // redraw
 				}
 
 				function update() {
 					scope.layerCollection.forEach(function(layer) {
-						//
 						scope.renderLayer(layer);
 					});
 				}
@@ -356,8 +338,8 @@
 									if (layer.name === scope.layerCollection[i].name) {
 										scope.layerCollection[i].d3Layer.remove();
 										scope.layerCollection.splice(i, 1);
+										i--;
 									}
-									
 								};
 								scope.layerCollection.push(layer);
 								scope.newLayer(layer);
@@ -373,10 +355,10 @@
 
 					if (scope.svg === null) {
 						scope.svg =
-							d3.select(element.find("div")[0])
-							.append("svg")
-							.attr("width", scope.width)
-							.attr("height", scope.height)
+							d3.select(element[0])
+							.append('svg')
+							.style('width', '100%')
+							.style('height', '100%')
 							.on("click", scope.stopped, true);
 
 						/*scope.svg
@@ -390,9 +372,6 @@
 						scope.svg
 							.call(scope.zoom)
 							.call(scope.zoom.event);
-
-						scope.d3projection = d3MapUtilities.selectProjection(scope.projection, attrs.width, attrs.height);
-						scope.path = d3.geo.path().projection(scope.d3projection);
 					}
 
 					layer.name = layer.name || 'newlayer';
@@ -404,6 +383,8 @@
 					layer.className = '.' + layer.name + "-" + d3MapUtilities.guid();
 					layer.style =  {color: 'black', opacity: .7, stroke: '#67C8FF', strokeWidth: .4};
 					//layer.hoversymbols = layer.hoversymbols || {color: 'black', opacity: 1, stroke: '#67C8FF', strokeWidth: 5};
+
+					updateProjection();
 
 					scope.renderLayer(layer);
 				};
