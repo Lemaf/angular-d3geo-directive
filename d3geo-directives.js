@@ -328,7 +328,7 @@
 
 					var layer;
 
-					if (newValue.length > 0){
+					if (newValue && newValue.length > 0){
 						for (var i = 0 ; i < newValue.length; i++){
 							if (! newValue[i].id){
 								layer =  newValue[i];
