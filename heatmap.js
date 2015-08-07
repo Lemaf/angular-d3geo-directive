@@ -69,6 +69,18 @@
 	};
 
 	HeatMap.prototype._newStyle = function(styleName, layer, properties) {
+
+		switch(typeof properties) {
+		case 'string':
+		case 'number':
+		case 'boolean':
+		case 'function':
+			return properties;
+		}
+		
+		if (!properties)
+			return null;
+
 		var type = STYLE_TYPES[styleName];
 
 		switch(type) {

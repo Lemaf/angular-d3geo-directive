@@ -347,7 +347,33 @@
 						}
 					}
 
+					if (newValue){
+						if (!scope.layers.length) {
+							scope.layerCollection.forEach(function(layer){
+								layer.d3Layer.remove();
+							});
+						} else {
+							for (var i = 0; i < scope.layerCollection.length; i++) {
+								
+								layer = scope.layerCollection[i];
+
+								if (!scope.hasLayer(layer)) {
+									layer.d3Layer.remove();
+									scope.layerCollection.splice(i, 1);
+								}
+							};
+						}
+
+					}
+
+
 				});
+
+				scope.hasLayer = function(layer) {
+					return scope.layers.some(function(currentLayer){
+						return currentLayer.name === layer.name;
+					});
+				};
 
 				scope.newLayer = function(layer) {
 
