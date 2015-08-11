@@ -177,7 +177,8 @@
 				mouseout: '=',
 				onclick: '=',
 				gauges: '=',
-				styles: '='
+				styles: '=',
+				redraw: '='
 			},
 			link: function(scope, element, attrs) {
 				scope.svg = null;
@@ -198,6 +199,28 @@
 					height: '100%',
 					width: '100%'
 				});
+
+				function redraw() {
+					updateProjection();
+					scope.layerCollection.some(function(layer){
+
+						if (layer.zoomTo) {
+							zoomTo(layer);
+							return false;
+						}
+
+						return true;
+					});
+				}
+
+				if (attrs.redraw) {					
+					scope.redraw = redraw;
+				}
+
+				if (attrs.redrawOn) {
+					scope.$on(attrs.redrawOn, redraw);
+				}
+
 				scope.applyStyle = function(el, style){
 					d3.select(el.parentNode.appendChild(el))
 						.style({'stroke':style.stroke})
@@ -221,6 +244,13 @@
 				}
 				d3.select(window).on('resize', updateProjection);
 
+				function zoomTo(layer) {
+
+					var b = d3MapUtilities.getLayerBounds(layer.d3Layer, scope.d3projection, scope.height, scope.width);
+					scope.zoomToBounds(b.translate, b.scale);
+
+				}
+
 				scope.renderLayer = function(layer) {
 
 					var selection;
@@ -233,10 +263,9 @@
 						.insert("path")
 						.attr("d", path)
 						.attr("class", layer.className);
-						if (layer.zoomTo) {
-							var b = d3MapUtilities.getLayerBounds(layer.d3Layer, scope.d3projection, scope.height, scope.width);
-							scope.zoomToBounds(b.translate, b.scale);
-						}
+
+						if (layer.zoomTo)
+							zoomTo(layer);
 						
 						if (scope.graticule && !scope.graticuleLayer) {
 							scope.showGraticule();
