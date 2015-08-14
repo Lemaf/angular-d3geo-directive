@@ -172,13 +172,12 @@
 				pan: '=',
 				graticule: '=',
 				index:'@',
-				mousemove: '=',
-				mouseenter: '=',
-				mouseout: '=',
 				onclick: '=',
 				gauges: '=',
 				styles: '=',
-				redraw: '='
+				redraw: '=',
+				info: '=',
+				fullscreen: '='
 			},
 			link: function(scope, element, attrs) {
 				scope.svg = null;
@@ -250,7 +249,6 @@
 					scope.zoomToBounds(b.translate, b.scale);
 
 				}
-
 				scope.renderLayer = function(layer) {
 
 					var selection;
@@ -264,6 +262,75 @@
 						.attr("d", path)
 						.attr("class", layer.className);
 
+						function defineInfo() {
+							var infoContainer;
+							selection.on("mouseout", function(d, index){
+								var infoConfig = scope.info(d, layer.name);
+								if (!infoConfig)
+									return;
+								var style = defineStyle(layer);
+								this.style.stroke = style.stroke;
+								this.style.strokeWidth = style.strokeWidth;
+								this.style.fillOpacity = style.fillOpacity;
+								if (!infoContainer || Number(infoContainer.property('id')) === index)
+									infoContainer.style("visibility", "hidden");
+							})
+							.on("mouseenter", function(d, index){
+
+								var infoConfig = scope.info(d, layer.name);
+								if (!infoConfig)
+									return;
+
+								var mouseenterConfig = infoConfig.mouseenter;
+								this.style.stroke = mouseenterConfig ? mouseenterConfig.stroke : "#655A4B";
+								this.style.strokeWidth = mouseenterConfig ? mouseenterConfig.strokeWidth : 0.1;
+								this.style.fillOpacity = mouseenterConfig ? mouseenterConfig.fillOpacity : 0.4;
+								this.style.cursor = mouseenterConfig ? mouseenterConfig.cursor : "pointer";
+
+								if (infoContainer)
+									infoContainer.remove();
+
+								var infoContainerParent;
+
+								if (scope.fullscreen)
+									infoContainerParent = d3.select(d3.select('d3map').property('parentElement'));
+								else 
+									infoContainerParent = d3.select('body');
+
+								var defaultStyle = {
+									"position": "absolute",
+									"z-index": "4",
+									"visibility": "hidden",
+									"background-color": "rgba(208,208,208,0.5)",
+									"color": "#655A4B",
+									"border": "1px solid #cccccc",
+									"padding": "1px"
+								};
+
+								var infoStyle = defaultStyle;
+
+								if (infoConfig.style)
+									infoStyle = infoConfig.style;
+
+								infoContainer = infoContainerParent
+								.append("div")
+								.attr("id", index);
+
+								for (var prop in infoStyle)
+  									infoContainer.style(prop, defaultStyle[prop]);
+
+								infoContainer.style("visibility", "visible");
+								infoContainer.html( infoConfig ? infoConfig.content : "");
+							})
+							.on("mousemove", function(){
+								if (infoContainer.style)
+									infoContainer.style("top",(d3.event.pageY-10)+"px").style("left",(d3.event.pageX+10)+"px");
+							});
+						}
+
+						if (scope.info) {
+							defineInfo();
+						}
 						if (layer.zoomTo)
 							zoomTo(layer);
 						
@@ -272,6 +339,17 @@
 						}
 					} else
 						selection = layer.d3Layer.selectAll('path');
+
+					var styles = defineStyle(layer);
+
+					selection.style("fill", styles.fill)
+					.style("fill-opacity", styles.fillOpacity)
+					.style("opacity", styles.opacity)
+					.style("stroke", styles.stroke)
+					.style("stroke-width", styles.strokeWidth)
+					.style("stroke-opacity", styles.strokeOpacity)
+				};
+				function defineStyle(layer) {
 
 					var styles;
 					if (scope.gauges) {
@@ -282,14 +360,8 @@
 					}
 					if (!styles)
 						styles = getStyles(layer);
-
-					selection.style("fill", styles.fill)
-					.style("fill-opacity", styles.fillOpacity)
-					.style("opacity", styles.opacity)
-					.style("stroke", styles.stroke)
-					.style("stroke-width", styles.strokeWidth)
-					.style("stroke-opacity", styles.strokeOpacity)
-				};
+					return styles;
+				}
 				scope.showGraticule = function(){
 
 					var graticule = d3.geo.graticule();
@@ -351,8 +423,6 @@
 						scope.projection = newValue;
 				   // }
 				});
-
-
 				scope.$watchCollection('layers', function (newValue, oldValue) {
 
 					var layer;
@@ -415,6 +485,7 @@
 							.style('width', '100%')
 							.style('height', '100%')
 							.on("click", scope.stopped, true);
+
 
 						/*scope.svg
 							.append("rect")
