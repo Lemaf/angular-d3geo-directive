@@ -192,6 +192,8 @@
 					hoverSymbol:{},
 					zoomTo: false
 				};
+				scope.legendContainer = d3.select(document.createElement('div'));
+				element.append(scope.legendContainer.node());
 				element.css({
 					display: 'block',
 					height: '100%',
@@ -224,7 +226,6 @@
 						.style({'stroke':style.stroke})
 						.style({'fill': style.color})
 						.style({'opacity': style.opacity})
-						//.style({'stroke-width': style.strokeWidth});
 						.style("stroke-width", 1.5 / d3.event.scale + "px");
 				};
 				function path(datum, index) {
@@ -241,6 +242,13 @@
 					}
 				}
 				d3.select(window).on('resize', updateProjection);
+				d3.select('d3map')
+				.on('mousedown', function() {
+					this.style.cursor = 'move';
+				})
+				.on('mouseup', function(){
+					this.style.cursor = 'default';
+				});
 
 				function zoomTo(layer) {
 
@@ -250,67 +258,71 @@
 				}
 				scope.renderLayer = function(layer) {
 
-					var selection, infoConfig;
+					var selection, infoConfig, prefix = "tooltip-" + layer.name;
+					var styles = defineStyle(layer);
+					var legendElement = defineLegend(layer);
+
+					if (legendElement) {
+						var localContainer = d3.select(document.createElement('div'));
+						localContainer.attr("layer-name", layer.name);
+						localContainer.node().appendChild(legendElement);
+
+						scope.legendContainer.node().appendChild(localContainer.node());
+					}
+
 					function defineTooltip() {
 						var infoContainer, infoContainerParent;
 						selection.on("mouseout", function(d, index){
-							infoConfig = scope.info(d, layer.name);
-							if (!infoConfig)
-								return;
-							var style = defineStyle(layer);
-							this.style.fill = style.fill(d, index);
-							this.style.stroke = style.stroke;
-							this.style.strokeWidth = style.strokeWidth;
-							this.style.fillOpacity = style.fillOpacity ? style.fillOpacity : 1.0;
-							if (!infoContainer || Number(infoContainer.property('id')) === index)
+
+							this.style.fill = styles.fill.apply ? styles.fill(d, index) : styles.fill;
+							this.style.stroke = styles.stroke;
+							this.style.strokeWidth = styles.strokeWidth;
+							this.style.fillOpacity = styles.fillOpacity ? styles.fillOpacity : 1.0;
+							if (infoContainer && infoContainer.property('id') === (prefix + index))
 								infoContainer.style("visibility", "hidden");
 						})
 						.on("mouseenter", function(d, index){
+							createTooltip(this, d, index);
+						})
+						.on("mousemove", function(){
+							if (infoContainer && infoContainer.style) {
+								var left = (d3.event.pageX - window.scrollX + 10) + 'px';
+								var top = (d3.event.pageY - window.scrollY + 10) + 'px';
+								infoContainer.style("left", left).style("top", top);
+							};
+						})
+						.on("mousedown", function(d, index){
+							if (infoContainer)
+								infoContainer.remove();
+						}).on("mouseup", function(d, index){
+							createTooltip(this, d, index);
+						});
 
-							var infoConfig = scope.info(d, layer.name);
+						var createTooltip = function(selection, d, index) {
+							
+							var infoConfig = scope.info(d, layer.name, styles);
 							if (!infoConfig)
 								return;
 
-							var mouseenterConfig = infoConfig.mouseenter;
-							this.style.stroke = mouseenterConfig ? mouseenterConfig.stroke : "#655A4B";
-							this.style.strokeWidth = mouseenterConfig ? mouseenterConfig.strokeWidth : 0.1;
-							this.style.fillOpacity = mouseenterConfig ? mouseenterConfig.fillOpacity : 0.4;
-							this.style.cursor = mouseenterConfig ? mouseenterConfig.cursor : "pointer";
+							var mouseenterConfig = infoConfig.mouseenter || {};
+							selection.style.stroke = mouseenterConfig.stroke || "#000000";
+							selection.style.strokeWidth = mouseenterConfig.strokeWidth || 0.1;
+							selection.style.fillOpacity = mouseenterConfig.fillOpacity || 1;
+							selection.style.cursor = 'default';
 
 							if (infoContainer)
 								infoContainer.remove();
 
 							infoContainerParent = d3.select(d3.select('d3map').property('parentElement'));
 
-							var defaultStyle = {
-								"position": "fixed",
-								"z-index": "4",
-								"visibility": "hidden",
-								"background-color": "rgba(208,208,208,0.5)",
-								"color": "#655A4B",
-								"border": "1px solid #cccccc",
-								"padding": "1px"
-							};
-
-							if (!infoConfig.style)
-								infoConfig.style = defaultStyle;
-
 							infoContainer = infoContainerParent
 							.append("div")
-							.attr("id", index);
-							for (var prop in infoConfig.style)
-									infoContainer.style(prop, defaultStyle[prop]);
+							.classed("d3geo-tooltip", true)
+							.attr("id", prefix + index);
 
 							infoContainer.style("visibility", "visible");
 							infoContainer.html( infoConfig ? infoConfig.content : "");
-						})
-						.on("mousemove", function(){
-							if (infoContainer.style) {
-								var left = (d3.event.pageX - window.scrollX + 10) + 'px';
-								var top = (d3.event.pageY - window.scrollY + 10) + 'px';
-								infoContainer.style("left", left).style("top", top);
-							};
-						});
+						}
 					}
 					if (!layer.d3Layer) {
 						layer.d3Layer = scope.svg.insert("g").selectAll(layer.className).data(layer.geojson.features);
@@ -321,9 +333,9 @@
 						.attr("d", path)
 						.attr("class", layer.className);
 
-
 						if (scope.info)
 							defineTooltip();
+						
 						if (layer.zoomTo)
 							zoomTo(layer);
 						
@@ -333,8 +345,6 @@
 					} else
 						selection = layer.d3Layer.selectAll('path');
 
-					var styles = defineStyle(layer);
-
 					selection.style("fill", styles.fill)
 					.style("fill-opacity", styles.fillOpacity)
 					.style("opacity", styles.opacity)
@@ -342,6 +352,7 @@
 					.style("stroke-width", styles.strokeWidth)
 					.style("stroke-opacity", styles.strokeOpacity)
 				};
+
 				function defineStyle(layer) {
 
 					var styles;
@@ -354,6 +365,21 @@
 					if (!styles)
 						styles = getStyles(layer);
 					return styles;
+				}
+				function defineLegend(layer) {
+
+					var legend;
+
+					if (scope.gauges) {
+
+						if(!scope.heatmap)
+							scope.heatmap = heatmap(scope.svg, scope.layerCollection).update(scope.gauges);
+
+						legend = scope.heatmap.getLegend(layer);
+					} else {
+						// TODO: anything
+					}
+					return legend;
 				}
 				scope.showGraticule = function(){
 
@@ -429,6 +455,7 @@
 								for (var i = 0; i < scope.layerCollection.length; i++) {
 									if (layer.name === scope.layerCollection[i].name) {
 										scope.layerCollection[i].d3Layer.remove();
+										scope.legendContainer.selectAll('*[layer-name="' + layer.name + '"]').remove();
 										scope.layerCollection.splice(i, 1);
 										i--;
 									}
@@ -443,6 +470,7 @@
 						if (!scope.layers.length) {
 							scope.layerCollection.forEach(function(layer){
 								layer.d3Layer.remove();
+								scope.legendContainer.selectAll('*[layer-name="' + layer.name + '"]').remove();
 							});
 						} else {
 							for (var i = 0; i < scope.layerCollection.length; i++) {
@@ -451,6 +479,7 @@
 
 								if (!scope.hasLayer(layer)) {
 									layer.d3Layer.remove();
+									scope.legendContainer.selectAll('*[layer-name="' + layer.name + '"]').remove();
 									scope.layerCollection.splice(i, 1);
 								}
 							};
@@ -474,6 +503,7 @@
 					if (scope.svg === null) {
 						scope.svg =
 							d3.select(element[0])
+							.style('position', 'relative')
 							.append('svg')
 							.style('width', '100%')
 							.style('height', '100%')
