@@ -471,7 +471,8 @@
 					if (newValue){
 						if (!scope.layers.length) {
 							scope.layerCollection.forEach(function(layer){
-								layer.d3Layer.remove();
+								if (layer.d3Layer)
+									layer.d3Layer.remove();
 								legend = scope.legendContainer.selectAll('*[layer-name="' + layer.name + '"]');
 								if (legend) 
 									legend.remove();
@@ -482,7 +483,8 @@
 								layer = scope.layerCollection[i];
 
 								if (!scope.hasLayer(layer)) {
-									layer.d3Layer.remove();
+									if (layer.d3Layer)
+										layer.d3Layer.remove();
 									legend = scope.legendContainer.selectAll('*[layer-name="' + layer.name + '"]');
 										if (legend) 
 											legend.remove();
