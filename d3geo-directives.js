@@ -444,7 +444,7 @@
 				});
 				scope.$watchCollection('layers', function (newValue, oldValue) {
 
-					var layer;
+					var layer, legend;
 
 					if (newValue && newValue.length > 0){
 						for (var i = 0 ; i < newValue.length; i++){
@@ -455,7 +455,9 @@
 								for (var i = 0; i < scope.layerCollection.length; i++) {
 									if (layer.name === scope.layerCollection[i].name) {
 										scope.layerCollection[i].d3Layer.remove();
-										scope.legendContainer.selectAll('*[layer-name="' + layer.name + '"]').remove();
+										legend = scope.legendContainer.selectAll('*[layer-name="' + layer.name + '"]');
+										if (legend) 
+											legend.remove();
 										scope.layerCollection.splice(i, 1);
 										i--;
 									}
@@ -470,7 +472,9 @@
 						if (!scope.layers.length) {
 							scope.layerCollection.forEach(function(layer){
 								layer.d3Layer.remove();
-								scope.legendContainer.selectAll('*[layer-name="' + layer.name + '"]').remove();
+								legend = scope.legendContainer.selectAll('*[layer-name="' + layer.name + '"]');
+								if (legend) 
+									legend.remove();
 							});
 						} else {
 							for (var i = 0; i < scope.layerCollection.length; i++) {
@@ -479,7 +483,9 @@
 
 								if (!scope.hasLayer(layer)) {
 									layer.d3Layer.remove();
-									scope.legendContainer.selectAll('*[layer-name="' + layer.name + '"]').remove();
+									legend = scope.legendContainer.selectAll('*[layer-name="' + layer.name + '"]');
+										if (legend) 
+											legend.remove();
 									scope.layerCollection.splice(i, 1);
 								}
 							};

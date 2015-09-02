@@ -81,7 +81,8 @@
 				
 				var sample = document.createElement('div');
 
-				d3.select(sample).style("background", "linear-gradient(to right, " + initialColor + ", " + finalColor + ")")
+				var gradientStyle = createLinearGradientToLegend(initialColor, finalColor);
+				d3.select(sample).style(gradientStyle[0], gradientStyle[1])
 				.classed('heatmap-sample', true);
 
 				div.insertBefore(sample, selection.select('.final').node());
@@ -91,6 +92,45 @@
 
 		return div;		
 	};
+
+	function createLinearGradientToLegend(initialColor, finalColor) {
+
+		var gradient, gradients = {
+			"Firefox": ["background", "-moz-linear-gradient(left, "+ initialColor +", "+ finalColor +")"],
+			"Chrome": ["background", "-webkit-linear-gradient(left, "+ initialColor +", "+ finalColor +")"],
+			"Opera": ["background", "o-linear-gradient(left, "+ initialColor +", "+ finalColor +")"],
+			"IE": ["background", "-ms-linear-gradient(left, "+ initialColor +", "+ finalColor +")"]
+		};
+
+		function getBrowser() {
+			var userAgent = navigator.userAgent, 
+				tem, 
+				M = userAgent.match(/(opera|chrome|safari|firefox|msie|trident(?=\/))\/?\s*(\d+)/i) || [];
+
+			if (/trident/i.test(M[1])) {
+				tem =/\brv[ :]+(\d+)/g.exec(userAgent) || [];
+				return 'IE';
+			}
+
+			if (M[1] === 'Chrome') {
+				tem = userAgent.match(/\bOPR\/(\d+)/)
+				if (tem != null) {
+					return 'Opera'
+				}
+			}
+
+			M = M[2] ? [M[1], M[2]] : [navigator.appName, navigator.appVersion, '-?'];
+
+			if ((tem = userAgent.match(/version\/(\d+)/i)) !=null) {
+				M.splice(1,1,tem[1]);
+			}
+
+			return M[0];
+		}
+
+		gradient = gradients[getBrowser()];
+		return gradient ? gradient : ["background", "linear-gradient(left, "+ initialColor +", "+ finalColor +")"];
+	}
 	HeatMap.prototype.update = function(gauges) {
 		this._gauges = gauges;
 
